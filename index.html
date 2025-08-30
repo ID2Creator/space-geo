@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Scanner ARG</title>
+  <style>
+    body {
+      background: black;
+      margin: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #00ffcc;
+      font-family: monospace;
+    }
+    video, canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      object-fit: cover;
+    }
+    #scanBtn {
+      position: absolute;
+      bottom: 20px;
+      padding: 10px 20px;
+      background: #111;
+      color: #00ffcc;
+      border: 1px solid #00ffcc;
+      font-size: 18px;
+      cursor: pointer;
+      z-index: 10;
+    }
+    #result {
+      position: absolute;
+      top: 20px;
+      font-size: 20px;
+      text-shadow: 0 0 5px #00ffcc;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas"></canvas>
+  <button id="scanBtn">🔍 Scan</button>
+  <div id="result">[Código não detectado]</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
+  <script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const result = document.getElementById("result");
+
+    // Abrir câmera
+    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+      video.srcObject = stream;
+    });
+
+    // Ajustar tamanho
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    // Filtro glitch simples
+    function drawGlitch() {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let data = imgData.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        // Pequeno deslocamento de cores
+        if (i % 20 === 0) {
+          data[i] = data[i + 100] || data[i];     // Red
+          data[i+1] = data[i + 500] || data[i+1]; // Green
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      requestAnimationFrame(drawGlitch);
+    }
+    drawGlitch();
+
+    // Botão Scan -> captura frame e lê metadados
+    document.getElementById("scanBtn").addEventListener("click", () => {
+      canvas.toBlob(blob => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const arrayBuffer = e.target.result;
+          EXIF.getData({src: e.target.result}, function() {
+            let code = EXIF.getTag(this, "ImageDescription") || "Nenhum código encontrado";
+            result.textContent = "Código: " + code;
+          });
+        };
+        reader.readAsArrayBuffer(blob);
+      }, "image/jpeg");
+    });
+  </script>
+</body>
+</html>
